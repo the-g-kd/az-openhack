@@ -1,0 +1,237 @@
+# because my account has MFA need to use --tenant to login
+
+az login --tenant d5ff8b89-c4a8-4eea-a137-cf034bb2a216
+
+#create a service principle to use to create kubernetes cluster
+export SERVICE_PRINCIPAL=hacker5-service-principal
+
+az ad sp create-for-rbac --skip-assignment --name $SERVICE_PRINCIPAL
+
+################################################################################
+#	{																		   #
+#  		"appId": "19a2dafe-8072-4dc1-a977-0da3d61d3043",					   #
+#  		"displayName": "hacker5-service-principal",					   		   #
+#  		"name": "http://hacker5-service-principal",					   		   #
+#  		"password": "9JhyWjZE7ITP.Q_PZn7eMIIUJxSO8HyM-2",					   #
+#  		"tenant": "d5ff8b89-c4a8-4eea-a137-cf034bb2a216"					   #
+#	}																		   #
+################################################################################
+
+SP_ID=$(az ad sp list --display-name $SERVICE_PRINCIPAL --query "[].appId" -o tsv)
+
+
+#set variables
+export RESOURCE_GROUP=k8resourcegroup
+export REGION_NAME=ukwest
+export VNET_NAME=k8learningvnet
+export SUBNET_NAME=k8subnet
+export TAGS="{\"useage\": \"learning\"}"
+
+# create resource group from template and parameter
+
+az group create --location $REGION_NAME --resource-group $RESOURCE_GROUP --tags $TAGS
+
+#create virtual network and subnet
+az network vnet create \
+    --resource-group $RESOURCE_GROUP \
+    --location $REGION_NAME \
+    --name $VNET_NAME \
+    --address-prefixes 10.0.0.0/8 \
+    --subnet-name $SUBNET_NAME \
+    --subnet-prefixes 10.240.0.0/16
+
+#export subnet id for subsequent use.
+
+SUBNET_ID=$(az network vnet subnet show \
+    --resource-group $RESOURCE_GROUP \
+    --vnet-name $VNET_NAME \
+    --name $SUBNET_NAME \
+    --query id -o tsv)
+
+
+#set network contributor role to the service principal for the subnet created above
+
+az role assignment create --assignee $SP_ID --role "Network Contributor" --scope  $SUBNET_ID
+
+#create aks cluster with principal, azure CLI, and the subnet created above.
+
+export AKS_CLUSTER_NAME=openhack-cluster
+
+az aks create \
+--resource-group $RESOURCE_GROUP \
+--name $AKS_CLUSTER_NAME \
+--vm-set-type VirtualMachineScaleSets \
+--node-count 2 \
+--load-balancer-sku standard \
+--location $REGION_NAME \
+--network-plugin azure \
+--vnet-subnet-id $SUBNET_ID \
+--service-cidr 10.2.0.0/24 \
+--dns-service-ip 10.2.0.10 \
+--docker-bridge-address 172.17.0.1/16 \
+--generate-ssh-keys \
+--service-principal $SP_ID \
+--client-secret "9JhyWjZE7ITP.Q_PZn7eMIIUJxSO8HyM-2"
+
+#--kubernetes-version $VERSION \
+
+
+# Test the connection to the newly created cluster
+
+az aks get-credentials \
+    --resource-group $RESOURCE_GROUP \
+    --name $AKS_CLUSTER_NAME
+
+#create namespaces required
+
+kubectl create namespace web-dev
+kubectl create namespace api-dev
+kubectl create namespace ingress
+
+#now let us create the registry
+
+ACR_NAME=acrPlaywithK8
+
+az acr create \
+    --resource-group $RESOURCE_GROUP \
+    --location $REGION_NAME \
+    --name $ACR_NAME \
+    --sku Standard
+
+#copy the id of acr created above
+
+ACR_ID=$(az acr show --name $ACR_NAME --query id -o tsv)
+
+#get the loginServer name of ACR 
+ACR_LOGINSERVER=$(az acr show --name $ACR_NAME --query loginServer -o tsv)
+
+
+#assign acr pull role to the principal
+
+az role assignment create --assignee $SP_ID --role "ACRPull" --scope  $ACR_ID
+
+#Let us now build the applications and tag them
+
+#first log in to the ACR so that you can docker push
+sudo az acr login --name $ACR_NAME
+
+#POI
+cd /home/gireesh/playwthaz/openhack-containers/src/poi
+
+#build POI docker image
+sudo docker build -f ../../dockerfiles/POI-API -t "tripinsights/poi:v1" .
+
+#Tag POI image	
+sudo docker tag tripinsights/poi:v1 $ACR_LOGINSERVER/poi:v1
+
+#push the POI image
+sudo docker push  $ACR_LOGINSERVER/poi:v1
+
+#Trips
+cd /home/gireesh/playwthaz/openhack-containers/src/trips
+
+#build Trips docker image
+sudo docker build -f ../../dockerfiles/Trips-API -t "tripinsights/trips-api:v1" .
+
+#Tag TRIPS image	
+sudo docker tag tripinsights/trips-api:v1 $ACR_LOGINSERVER/trips-api:v1
+
+#push the TRIPS image
+sudo docker push  $ACR_LOGINSERVER/trips-api:v1
+
+#TRIPS VIEWER
+
+#Build Trips viewer
+sudo docker build -f ../../dockerfiles/TripViewer-web -t "tripinsights/trips-viewer:v1" .
+
+#Tag trips viewer image
+sudo docker tag tripinsights/trips-viewer:v1 $ACR_LOGINSERVER/trips-viewer:v1
+
+#Push trips viewer image
+sudo docker push  $ACR_LOGINSERVER/trips-viewer:v1
+
+#USER Java
+
+sudo docker build -f ../../dockerfiles/UserProfile-Java-API -t "tripinsights/upjava-api:v1" .
+
+#Tag UserProfile-Java-API
+sudo docker tag tripinsights/upjava-api:v1 $ACR_LOGINSERVER/upjava-api:v1
+
+#Push UserProfile-Java-API image
+sudo docker push  $ACR_LOGINSERVER/upjava-api:v1
+
+#User Profile API
+#Build
+sudo docker build -f ../../dockerfiles/UserProfile-API -t "tripinsights/up-api:v1" .
+
+#TAG
+sudo docker tag tripinsights/up-api:v1 $ACR_LOGINSERVER/up-api:v1
+
+#Push to repository
+sudo docker push  $ACR_LOGINSERVER/up-api:v1
+
+
+#Deploy database and server
+
+#create a storage account, a container and upload the db backup to it.
+#create a sql server with public access
+#import the back up - use the credentials below.
+
+SQL_SERVER=tripinsights.database.windows.net
+SQL_USER=k8playuseradmin
+SQL_PASSWORD=k8userplayadmin!
+DATABASE=mydrivingDB
+
+
+#similarly convert all the SQL server, user, password, and database details to base 64 and add them to secret-cred-store.
+echo -n 'k8playuseradmin' | base64
+
+# Create a kubernetes opaqsecret secret with secret-creds-store.yaml
+
+kubectl apply -f secret-creds-store.yaml
+
+#deploy the pods now
+kubectl apply -f trip-viewer.yaml
+kubectl apply -f userprofile-api.yaml
+kubectl apply -f userprofile-java-api.yaml
+kubectl apply -f trips-api.yaml
+kubectl apply -f poi-api.yaml
+
+#check if all is well
+kubectl get pods --namespace web-dev
+
+#use pod name from output to execute following
+
+ kubectl exec --namespace=web-dev --stdin --tty tripviewer-6c99f78567-qww6b -- curl -i -X GET 'http://poi.api-dev.svc.cluster.local/api/poi/healthcheck'
+ 
+ kubectl exec --namespace=web-dev --stdin --tty tripviewer-6c99f78567-qww6b -- curl -i -X GET 'http://tripsapi.api-dev.svc.cluster.local/api/trips/healthcheck'
+ 
+ kubectl exec --namespace=web-dev --stdin --tty tripviewer-6c99f78567-qww6b -- curl -i -X GET 'http://userprofileapi.api-dev.svc.cluster.local/api/user/healthcheck'
+ 
+ kubectl exec --namespace=web-dev --stdin --tty tripviewer-6c99f78567-qww6b -- curl -i -X GET 'http://userprofilejava.api-dev.svc.cluster.local/api/user-java/healthcheck'
+
+
+# use helm to deploy nginx ingress
+helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+helm repo update
+
+#install ingress controller
+
+helm install nginx-ingress ingress-nginx/ingress-nginx \
+    --namespace ingress \
+    --set controller.replicaCount=2 \
+    --set controller.nodeSelector."beta\.kubernetes\.io/os"=linux \
+    --set defaultBackend.nodeSelector."beta\.kubernetes\.io/os"=linux
+
+# get the ip of ingress controller 
+kubectl get services --namespace ingress -w
+
+#51.140.223.42
+
+#remove the loadbalancer you created for trip-viewer
+
+#create trip-viewer-ingress.yaml so that your 
+
+kubectl apply --namespace web-dev -f trip-viewer-ingress.yaml
+
+
