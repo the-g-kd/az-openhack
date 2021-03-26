@@ -1,0 +1,65 @@
+#for trip viewer
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tripviewer
+  namespace: web-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tripviewer
+  template:
+    metadata:
+      labels:
+        app: tripviewer
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: tripviewer
+        image: acrplaywithk8.azurecr.io/trips-viewer:v1
+        imagePullPolicy: Always
+        env:
+        - name: ALLOW_EMPTY_PASSWORD
+          value: "yes"
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Development"
+        - name: TRIPS_API_ENDPOINT
+          value: "http://tripsapi.api-dev.svc.cluster.local:80"
+        - name: USERPROFILE_API_ENDPOINT
+          value: "http://userprofileapi.api-dev.svc.cluster.local:80"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+        ports:
+        - containerPort: 80
+          name: tripviewport
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tripviewer
+  namespace: web-dev
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: tripviewer
+#end for trip viewer
+---
+#apiVersion: v1
+#kind: Service
+#metadata:
+#  name: tripinsightsfront
+#  namespace: web-dev
+#spec:
+#  type: LoadBalancer
+#  ports:
+#  - port: 80
+#  selector:
+#    app: tripviewer
