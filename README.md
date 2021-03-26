@@ -11,4 +11,3 @@ Objective is to deploy Trip Insights application in your own AKS cluster. This i
 * Azure command line interface
 * Azure subsription
 * Basic understanding of YAML. **Warning** if you mess up indentation, expect errors. **Highly** recommend something like MS Visual Code with plugins for YAML so that its easier     for you to CRUD YAMIL files.
-
