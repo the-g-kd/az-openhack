@@ -2,7 +2,7 @@
 
 Objective is to deploy Trip Insights application in your own AKS cluster. This is from a Microsoft OpenHack event. Source code can be found in the following github repository
 
-`https://github.com/the-g-kd/openhack-containers`
+[Openhack Container Repository] (https://github.com/the-g-kd/openhack-containers)
 
 ## Prerequisits
 
@@ -12,5 +12,3 @@ Objective is to deploy Trip Insights application in your own AKS cluster. This i
 * Azure subsription
 * Basic understanding of YAML. **Warning** if you mess up indentation, expect errors. **Highly** recommend something like MS Visual Code with plugins for YAML so that its easier     for you to CRUD YAMIL files.
 
-http://github.com - automatic!
-[GitHub](http://github.com)
