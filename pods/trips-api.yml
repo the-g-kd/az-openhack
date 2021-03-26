@@ -1,0 +1,58 @@
+#for trips api
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tripsapi
+  namespace: api-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tripsapi
+  template:
+    metadata:
+      labels:
+        app: tripsapi
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: tripsapi
+        image: acrplaywithk8.azurecr.io/trips-api:v1
+        imagePullPolicy: Always
+        env:
+        - name: ALLOW_EMPTY_PASSWORD
+          value: "yes"
+        - name: ASPNETCORE_ENVIRONMENT
+          value: "Development"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+        ports:
+        - containerPort: 80
+          name: tripsapiport
+        volumeMounts:
+        - name: secretmount
+          mountPath: /secrets
+          readOnly: true
+      volumes:
+          - name: secretmount
+            secret:
+              secretName: secrets-store-creds    
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tripsapi
+  namespace: api-dev
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: tripsapi
+---
+#end for trips api
