@@ -1,4 +1,5 @@
 # because my account has MFA need to use --tenant to login
+# YAML files mentioned are in the repository under different folders.
 
 az login --tenant xxxxxxxxxxxx
 
@@ -54,8 +55,9 @@ SUBNET_ID=$(az network vnet subnet show \
 az role assignment create --assignee $SP_ID --role "Network Contributor" --scope  $SUBNET_ID
 
 #create aks cluster with principal, azure CLI, and the subnet created above.
+# client-secret below is the password from the response when you created the service principal.
 
-export AKS_CLUSTER_NAME=openhack-cluster
+AKS_CLUSTER_NAME=openhack-cluster
 
 az aks create \
 --resource-group $RESOURCE_GROUP \
@@ -88,7 +90,7 @@ kubectl create namespace web-dev
 kubectl create namespace api-dev
 kubectl create namespace ingress
 
-#now let us create the registry
+#now let us create the container registry
 
 ACR_NAME=acrPlaywithK8
 
@@ -116,7 +118,7 @@ az role assignment create --assignee $SP_ID --role "ACRPull" --scope  $ACR_ID
 sudo az acr login --name $ACR_NAME
 
 #POI
-cd /home/gireesh/playwthaz/openhack-containers/src/poi
+cd /home/<user>/playwthaz/openhack-containers/src/poi
 
 #build POI docker image
 sudo docker build -f ../../dockerfiles/POI-API -t "tripinsights/poi:v1" .
@@ -128,7 +130,7 @@ sudo docker tag tripinsights/poi:v1 $ACR_LOGINSERVER/poi:v1
 sudo docker push  $ACR_LOGINSERVER/poi:v1
 
 #Trips
-cd /home/gireesh/playwthaz/openhack-containers/src/trips
+cd /home/<user>/playwthaz/openhack-containers/src/trips
 
 #build Trips docker image
 sudo docker build -f ../../dockerfiles/Trips-API -t "tripinsights/trips-api:v1" .
@@ -172,10 +174,11 @@ sudo docker push  $ACR_LOGINSERVER/up-api:v1
 
 
 #Deploy database and server
+# Perform the following manual steps
 
-#create a storage account, a container and upload the db backup to it.
-#create a sql server with public access
-#import the back up - use the credentials below.
+	#create a storage account, a container and upload the db backup to it.
+	#create a sql server with public access - use the credentials below
+	#import the back up - use the credentials below.
 
 SQL_SERVER=tripinsights.database.windows.net
 SQL_USER=k8playuseradmin
@@ -183,7 +186,8 @@ SQL_PASSWORD=k8userplayadmin!
 DATABASE=mydrivingDB
 
 
-#similarly convert all the SQL server, user, password, and database details to base 64 and add them to secret-cred-store.
+# convert all the SQL server, user, password, and database details to base 64 and add them to secret-cred-store.yaml
+
 echo -n 'k8playuseradmin' | base64
 
 # Create a kubernetes opaqsecret secret with secret-creds-store.yaml
@@ -202,13 +206,13 @@ kubectl get pods --namespace web-dev
 
 #use pod name from output to execute following
 
- kubectl exec --namespace=web-dev --stdin --tty tripviewer-6c99f78567-qww6b -- curl -i -X GET 'http://poi.api-dev.svc.cluster.local/api/poi/healthcheck'
+ kubectl exec --namespace=web-dev --stdin --tty <POD name> -- curl -i -X GET 'http://poi.api-dev.svc.cluster.local/api/poi/healthcheck'
  
- kubectl exec --namespace=web-dev --stdin --tty tripviewer-6c99f78567-qww6b -- curl -i -X GET 'http://tripsapi.api-dev.svc.cluster.local/api/trips/healthcheck'
+ kubectl exec --namespace=web-dev --stdin --tty <POD name> -- curl -i -X GET 'http://tripsapi.api-dev.svc.cluster.local/api/trips/healthcheck'
  
- kubectl exec --namespace=web-dev --stdin --tty tripviewer-6c99f78567-qww6b -- curl -i -X GET 'http://userprofileapi.api-dev.svc.cluster.local/api/user/healthcheck'
+ kubectl exec --namespace=web-dev --stdin --tty <POD name> -- curl -i -X GET 'http://userprofileapi.api-dev.svc.cluster.local/api/user/healthcheck'
  
- kubectl exec --namespace=web-dev --stdin --tty tripviewer-6c99f78567-qww6b -- curl -i -X GET 'http://userprofilejava.api-dev.svc.cluster.local/api/user-java/healthcheck'
+ kubectl exec --namespace=web-dev --stdin --tty <POD name> -- curl -i -X GET 'http://userprofilejava.api-dev.svc.cluster.local/api/user-java/healthcheck'
 
 
 # use helm to deploy nginx ingress
@@ -230,7 +234,7 @@ kubectl get services --namespace ingress -w
 
 #remove the loadbalancer you created for trip-viewer
 
-#create trip-viewer-ingress.yaml so that your 
+#create trip-viewer-ingress.yaml so that there is a mapping to all the URLs in the trip viewer UI
 
 kubectl apply --namespace web-dev -f trip-viewer-ingress.yaml
 
