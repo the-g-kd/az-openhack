@@ -1,6 +1,6 @@
 # because my account has MFA need to use --tenant to login
 
-az login --tenant d5ff8b89-c4a8-4eea-a137-cf034bb2a216
+az login --tenant xxxxxxxxxxxx
 
 #create a service principle to use to create kubernetes cluster
 export SERVICE_PRINCIPAL=hacker5-service-principal
