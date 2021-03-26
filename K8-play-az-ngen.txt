@@ -2,16 +2,16 @@
 
 az login --tenant xxxxxxxxxxxx
 
-#create a service principle to use to create kubernetes cluster
-export SERVICE_PRINCIPAL=hacker5-service-principal
+#create a service principal to use to create kubernetes cluster
+SERVICE_PRINCIPAL=k8clusterprincipal
 
 az ad sp create-for-rbac --skip-assignment --name $SERVICE_PRINCIPAL
 
 ################################################################################
 #	{																		   #
 #  		"appId": "19a2dafe-8072-4dc1-a977-0da3d61d3043",					   #
-#  		"displayName": "hacker5-service-principal",					   		   #
-#  		"name": "http://hacker5-service-principal",					   		   #
+#  		"displayName": "k8clusterprincipal",					   		   #
+#  		"name": "http://k8clusterprincipal",					   		   #
 #  		"password": "9JhyWjZE7ITP.Q_PZn7eMIIUJxSO8HyM-2",					   #
 #  		"tenant": "d5ff8b89-c4a8-4eea-a137-cf034bb2a216"					   #
 #	}																		   #
@@ -21,11 +21,11 @@ SP_ID=$(az ad sp list --display-name $SERVICE_PRINCIPAL --query "[].appId" -o ts
 
 
 #set variables
-export RESOURCE_GROUP=k8resourcegroup
-export REGION_NAME=ukwest
-export VNET_NAME=k8learningvnet
-export SUBNET_NAME=k8subnet
-export TAGS="{\"useage\": \"learning\"}"
+RESOURCE_GROUP=k8resourcegroup
+REGION_NAME=ukwest
+VNET_NAME=k8learningvnet
+SUBNET_NAME=k8subnet
+TAGS="{\"useage\": \"learning\"}"
 
 # create resource group from template and parameter
 
