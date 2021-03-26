@@ -1,0 +1,29 @@
+sudo docker pull mcr.microsoft.com/mssql/server:2017-latest
+
+sudo docker network create -d bridge datanetwork
+
+sudo docker run --network datanetwork -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=localhost123@"  -p 1433:1433 --name sqlserver -d mcr.microsoft.com/mssql/server:2017-latest
+
+sudo docker ps
+
+sudo docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' dd475b245308
+
+sudo docker exec -it sqlserver /opt/mssql-tools/bin/sqlcmd -S 172.18.0.2 -U SA -P "localhost123@" -Q "CREATE DATABASE mydrivingDB"
+
+sudo docker run --network "datanetwork" -e "SQLFQDN=sqlserver" -e "SQLUSER=SA" -e "SQLPASS=localhost123@" -e "SQLDB=mydrivingDB" openhack/data-load:v1
+
+#Lets build the applications now
+
+cd /home/<user>/playwthaz/openhack-containers/src/poi
+
+#build POI docker image
+sudo docker build -f ../../dockerfiles/POI-API -t "tripinsights/poi:v1" .
+
+sudo docker run -d -p 8080:80 --network "datanetwork" --name poi -e "SQL_PASSWORD=localhost123@" -e "SQL_SERVER=sqlserver" -e "ASPNETCORE_ENVIRONMENT=Local" tripinsights/poi:1.0
+
+curl -i -X GET 'http://localhost:8080/api/poi' 
+curl -i -X GET 'http://localhost:8080/api/trips/healthcheck'
+
+
+
+

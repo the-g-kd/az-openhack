@@ -1,0 +1,9 @@
+#Tricks & Tips
+
+# Find out the FQDN name of the pod
+
+kubectl exec --stdin --tty tripview-686d986c5d-qxf46 -- cat /etc/resolv.conf
+
+# List all deployments in all namespaces
+
+kubectl get deployments --all-namespaces=true
